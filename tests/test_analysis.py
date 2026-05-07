@@ -7,9 +7,10 @@ from openpyxl import load_workbook
 
 from src.heater_zoning import AnalysisConfig, analyze_profile, sample_profile_dataframe
 from src.heater_zoning.cli import main as cli_main
-from src.heater_zoning.exporters import export_analysis_excel
+from src.heater_zoning.exporters import export_analysis_excel, export_summary_pdf
 from src.heater_zoning.io_utils import normalize_profile_dataframe
 from src.heater_zoning.runflow import run_analysis_pipeline
+from src.heater_zoning.settings import AppSettings
 
 
 class AnalysisSmokeTest(unittest.TestCase):
@@ -54,6 +55,27 @@ class AnalysisSmokeTest(unittest.TestCase):
         artifacts = run_analysis_pipeline(config=AnalysisConfig(), source="sample")
         self.assertTrue(artifacts.export_path.exists())
         self.assertEqual(artifacts.summary_cards[0]["label"], "推荐方案")
+
+    def test_export_summary_pdf_creates_file(self):
+        result = analyze_profile(sample_profile_dataframe(), AnalysisConfig())
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "summary.pdf"
+            export_summary_pdf(result, output_path)
+            self.assertTrue(output_path.exists())
+            self.assertGreater(output_path.stat().st_size, 0)
+
+    def test_app_settings_round_trip(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings_path = Path(tmpdir) / "settings.json"
+            settings = AppSettings()
+            settings.add_recent_file("D:/data/profile.csv")
+            settings.save_template("default", AnalysisConfig())
+            settings.save(settings_path)
+
+            restored = AppSettings.load(settings_path)
+            self.assertEqual(restored.recent_files[0], "D:/data/profile.csv")
+            self.assertIn("default", restored.templates)
+            self.assertEqual(restored.load_template("default").module_gap, 10.0)
 
 
 if __name__ == "__main__":

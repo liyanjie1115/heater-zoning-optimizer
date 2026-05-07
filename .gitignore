@@ -15,5 +15,6 @@ ENV/
 .idea/
 *.iml
 outputs/*.xlsx
+outputs/*.pdf
 outputs/*.log
 !outputs/.gitkeep

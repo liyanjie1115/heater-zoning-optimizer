@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
 
 from .analysis import metrics_dataframe, representative_points_dataframe, zones_dataframe

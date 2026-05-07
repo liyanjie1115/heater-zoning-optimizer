@@ -6,34 +6,59 @@
 - CLI: `python cli.py --help`
 - Optional web view: `python app.py`
 
-## Packaging direction
+桌面 GUI 是主入口。
 
-当前项目适合优先发布为 Windows 桌面工具。
+## Windows packaging
 
-### 方案一：源码发布
+仓库里已经提供了两套 PyInstaller 构建入口：
 
-适合团队内部直接拉仓库运行：
+- `scripts/build_windows.ps1`
+- `scripts/build_windows.bat`
 
-```bash
-python desktop_app.py
+以及对应的 spec 文件：
+
+- `heater_zoning_optimizer.spec`
+
+### PowerShell
+
+```powershell
+.\scripts\build_windows.ps1
 ```
 
-### 方案二：PyInstaller 打包
+### Batch
 
-建议在独立环境中执行：
-
-```bash
-pyinstaller --noconfirm --onefile --windowed --name heater-zoning-optimizer desktop_app.py
+```bat
+scripts\build_windows.bat
 ```
 
-如果需要把 `data/` 一并打进去，再补 `--add-data` 参数。
+### 指定 Python
+
+如果你后面要切到单独环境，可以显式指定解释器：
+
+```powershell
+.\scripts\build_windows.ps1 -PythonExe "D:\anaconda\envs\data_science\python.exe"
+```
+
+## Build output
+
+默认产物在 `dist/` 下。
+
+```text
+dist\
+```
 
 ## Release checklist
 
 1. 运行 `python -m unittest discover -s tests -v`
 2. 运行 `python cli.py --json`
-3. 打开 `python desktop_app.py`
-4. 用示例数据完成一次分析
-5. 检查 `outputs/` 中的 Excel 报告
-6. 确认 Git 工作区干净后打 tag
-
+3. 运行 `python desktop_app.py`
+4. 在桌面端验证：
+   - 选择示例数据
+   - 运行分析
+   - 保存参数模板
+   - 检查最近文件
+   - 导出 Excel
+   - 导出 PDF 摘要
+5. 运行 PyInstaller 打包脚本
+6. 检查 `dist/` 中的 exe 是否可启动
+7. 确认 Git 工作区干净后打 tag

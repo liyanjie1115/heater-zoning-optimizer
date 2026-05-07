@@ -5,7 +5,7 @@
 - 等距分区
 - 按模块节距对齐的最优分区
 
-项目现在包含三种入口：
+项目当前提供三种入口：
 
 - 桌面 GUI
 - CLI
@@ -17,23 +17,29 @@
 
 ```text
 heater-zoning-optimizer/
-├─ desktop_app.py              # 桌面 GUI 入口
-├─ cli.py                      # 命令行入口
-├─ app.py                      # 可选网页入口
+├─ desktop_app.py                  # 桌面 GUI 入口
+├─ cli.py                          # 命令行入口
+├─ app.py                          # 可选网页入口
+├─ heater_zoning_optimizer.spec    # PyInstaller spec
+├─ scripts/
+│  ├─ build_windows.ps1            # Windows 打包脚本
+│  └─ build_windows.bat
 ├─ src/heater_zoning/
-│  ├─ analysis.py              # 核心算法
-│  ├─ config.py                # 参数模型
-│  ├─ exporters.py             # Excel 导出
-│  ├─ gui.py                   # Tkinter 桌面界面
-│  ├─ io_utils.py              # 输入解析
-│  ├─ reporting.py             # 报表数据整理
-│  ├─ runflow.py               # 统一执行流程
-│  └─ visualization.py         # Plotly / Matplotlib 图表
-├─ data/                       # 示例输入
-├─ outputs/                    # 分析输出
-├─ legacy/                     # 原始脚本和历史 Excel
-├─ tests/                      # 自动化测试
-└─ RELEASE.md                  # 发布说明
+│  ├─ analysis.py                  # 核心算法
+│  ├─ cli.py                       # CLI 实现
+│  ├─ config.py                    # 参数模型
+│  ├─ exporters.py                 # Excel / PDF 导出
+│  ├─ gui.py                       # Tkinter 桌面界面
+│  ├─ io_utils.py                  # 输入解析
+│  ├─ reporting.py                 # 报表数据整理
+│  ├─ runflow.py                   # 统一执行流程
+│  ├─ settings.py                  # 最近文件 / 参数模板
+│  └─ visualization.py             # Plotly / Matplotlib 图表
+├─ data/
+├─ outputs/
+├─ legacy/
+├─ tests/
+└─ RELEASE.md
 ```
 
 ## 输入格式
@@ -53,6 +59,16 @@ heater-zoning-optimizer/
 - 距离列严格递增
 - 第一行从 `0 mm` 开始
 - 最后一行覆盖总长度
+
+## 桌面端能力
+
+- 示例数据 / 本地文件两种输入方式
+- 最近文件列表
+- 参数模板保存与加载
+- 温度分区图、模块布局图、指标柱状图、雷达图
+- 图中显示每个分区的虚线边界
+- Excel 报告导出
+- PDF 摘要一键导出
 
 ## 运行
 
@@ -87,21 +103,22 @@ python app.py
 http://127.0.0.1:5000
 ```
 
-## 主要能力
-
-- 上传或使用示例温度剖面
-- 配置分区和模块安装约束
-- 生成等距分区与模块对齐分区
-- 显示温度分区图、模块布局图、指标柱状图、雷达图
-- 在图中显示每个分区的虚线边界
-- 导出美化后的 Excel 报告
-
 ## 测试
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## 发布
+## Windows 打包
 
-发布相关说明见 [RELEASE.md](RELEASE.md)。
+```powershell
+.\scripts\build_windows.ps1
+```
+
+或：
+
+```bat
+scripts\build_windows.bat
+```
+
+更多说明见 [RELEASE.md](RELEASE.md)。

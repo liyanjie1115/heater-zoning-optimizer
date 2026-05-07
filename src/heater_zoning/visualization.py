@@ -7,7 +7,11 @@ import plotly.graph_objects as go
 from matplotlib.figure import Figure
 from plotly.subplots import make_subplots
 
+from .fonts import configure_matplotlib_fonts
 from .models import MethodMetrics, ZoneResult
+
+
+configure_matplotlib_fonts()
 
 
 def _zone_boundaries(zones: Sequence[ZoneResult]):
@@ -268,7 +272,7 @@ def build_temperature_comparison_matplotlib(
 
 
 def build_module_layout_matplotlib(equal_zones: Sequence[ZoneResult], aligned_zones: Sequence[ZoneResult]) -> Figure:
-    fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
+    fig, axes = plt.subplots(2, 1, figsize=(12, 6.8), sharex=True)
     for axis, title, zones, color, fill in (
         (axes[0], "等距分区模块布局", equal_zones, "#2563eb", "#bfdbfe"),
         (axes[1], "模块对齐分区模块布局", aligned_zones, "#dc2626", "#fecaca"),
@@ -285,7 +289,7 @@ def build_module_layout_matplotlib(equal_zones: Sequence[ZoneResult], aligned_zo
         axis.set_title(title, loc="left", fontsize=12, fontweight="bold")
         axis.set_yticks([])
     axes[1].set_xlabel("距离 (mm)")
-    fig.tight_layout()
+    fig.subplots_adjust(left=0.05, right=0.98, top=0.94, bottom=0.08, hspace=0.32)
     _apply_matplotlib_style(fig)
     return fig
 
