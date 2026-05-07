@@ -1,4 +1,3 @@
-from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
@@ -6,8 +5,8 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from .analysis import metrics_dataframe, representative_points_dataframe, zones_dataframe
 from .models import AnalysisResult
+from .reporting import build_report_frames
 
 
 def beautify_excel(workbook_path: Path):
@@ -63,48 +62,17 @@ def beautify_excel(workbook_path: Path):
 
 
 def export_analysis_excel(result: AnalysisResult, output_path: Path) -> Path:
-    profile_df = result.profile_df
-    equal_df = zones_dataframe(
-        result.equal_zones,
-        "等距分区",
-        profile_df["distance_mm"].to_numpy(),
-        profile_df["temperature_c"].to_numpy(),
-    )
-    aligned_df = zones_dataframe(
-        result.aligned_zones,
-        "模块对齐分区",
-        profile_df["distance_mm"].to_numpy(),
-        profile_df["temperature_c"].to_numpy(),
-    )
-    equal_points_df = representative_points_dataframe(
-        result.equal_zones,
-        profile_df["distance_mm"].to_numpy(),
-        profile_df["temperature_c"].to_numpy(),
-        "等距分区",
-    )
-    aligned_points_df = representative_points_dataframe(
-        result.aligned_zones,
-        profile_df["distance_mm"].to_numpy(),
-        profile_df["temperature_c"].to_numpy(),
-        "模块对齐分区",
-    )
-    metrics_df = metrics_dataframe(result.equal_metrics, result.aligned_metrics)
+    frames = build_report_frames(result)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-        profile_df.to_excel(writer, sheet_name="原始数据", index=False)
-        equal_df.to_excel(writer, sheet_name="等距分区结果", index=False)
-        aligned_df.to_excel(writer, sheet_name="模块对齐分区结果", index=False)
-        equal_points_df.to_excel(writer, sheet_name="等距分区三点", index=False)
-        aligned_points_df.to_excel(writer, sheet_name="模块对齐分区三点", index=False)
-        metrics_df.to_excel(writer, sheet_name="评价指标", index=False)
+        frames.profile.to_excel(writer, sheet_name="原始数据", index=False)
+        frames.equal_zones.to_excel(writer, sheet_name="等距分区结果", index=False)
+        frames.aligned_zones.to_excel(writer, sheet_name="模块对齐分区结果", index=False)
+        frames.equal_points.to_excel(writer, sheet_name="等距分区三点", index=False)
+        frames.aligned_points.to_excel(writer, sheet_name="模块对齐分区三点", index=False)
+        frames.metrics.to_excel(writer, sheet_name="评价指标", index=False)
 
     beautify_excel(output_path)
     return output_path
-
-
-def export_excel_bytes(result: AnalysisResult) -> bytes:
-    temp_path = Path("outputs") / "_preview_export.xlsx"
-    export_analysis_excel(result, temp_path)
-    return temp_path.read_bytes()
 

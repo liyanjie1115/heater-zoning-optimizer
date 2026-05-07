@@ -1,12 +1,8 @@
-from datetime import datetime
-from pathlib import Path
-
 from flask import Flask, render_template, request, send_from_directory, url_for
 
-from src.heater_zoning import AnalysisConfig, analyze_profile, sample_profile_dataframe
-from src.heater_zoning.analysis import metrics_dataframe, representative_points_dataframe, zones_dataframe
-from src.heater_zoning.exporters import export_analysis_excel
-from src.heater_zoning.io_utils import normalize_profile_dataframe, read_profile_upload
+from src.heater_zoning import AnalysisConfig, sample_profile_dataframe
+from src.heater_zoning.io_utils import read_profile_upload
+from src.heater_zoning.runflow import run_analysis_for_dataframe, run_analysis_pipeline
 from src.heater_zoning.visualization import (
     build_metrics_bar_figure,
     build_metrics_radar_figure,
@@ -18,8 +14,6 @@ from src.heater_zoning.visualization import (
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
-
-OUTPUT_DIR = Path("outputs")
 
 
 def parse_config(form) -> AnalysisConfig:
@@ -58,28 +52,19 @@ def index():
                 if not upload or not upload.filename:
                     raise ValueError("请上传 CSV 或 Excel 数据文件。")
                 profile_df = read_profile_upload(upload)
+                artifacts = run_analysis_for_dataframe(profile_df=profile_df, config=config)
             else:
-                profile_df = normalize_profile_dataframe(sample_profile_dataframe())
+                artifacts = run_analysis_pipeline(config=config, source="sample")
 
-            result = analyze_profile(profile_df, config)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            export_path = OUTPUT_DIR / f"heater_zoning_report_{timestamp}.xlsx"
-            export_analysis_excel(result, export_path)
-
-            distance = result.profile_df["distance_mm"].to_numpy()
-            temp = result.profile_df["temperature_c"].to_numpy()
-            equal_df = zones_dataframe(result.equal_zones, "等距分区", distance, temp)
-            aligned_df = zones_dataframe(result.aligned_zones, "模块对齐分区", distance, temp)
-            equal_points_df = representative_points_dataframe(result.equal_zones, distance, temp, "等距分区")
-            aligned_points_df = representative_points_dataframe(result.aligned_zones, distance, temp, "模块对齐分区")
-            metrics_df = metrics_dataframe(result.equal_metrics, result.aligned_metrics)
+            result = artifacts.result
+            frames = artifacts.frames
 
             context.update(
                 {
                     "result_ready": True,
                     "default_config": config.to_dict(),
                     "active_source": source,
-                    "input_preview_html": dataframe_to_html(profile_df, max_rows=20),
+                    "input_preview_html": dataframe_to_html(result.profile_df, max_rows=20),
                     "temperature_chart": figure_to_html(
                         build_temperature_comparison_figure(result.profile_df, result.equal_zones, result.aligned_zones)
                     ),
@@ -88,12 +73,12 @@ def index():
                     "radar_chart": figure_to_html(build_metrics_radar_figure(result.equal_metrics, result.aligned_metrics)),
                     "equal_metrics": result.equal_metrics,
                     "aligned_metrics": result.aligned_metrics,
-                    "equal_table_html": dataframe_to_html(equal_df, max_rows=20),
-                    "aligned_table_html": dataframe_to_html(aligned_df, max_rows=20),
-                    "equal_points_html": dataframe_to_html(equal_points_df, max_rows=20),
-                    "aligned_points_html": dataframe_to_html(aligned_points_df, max_rows=20),
-                    "metrics_table_html": dataframe_to_html(metrics_df, max_rows=30),
-                    "download_url": url_for("download_output", filename=export_path.name),
+                    "equal_table_html": dataframe_to_html(frames.equal_zones, max_rows=20),
+                    "aligned_table_html": dataframe_to_html(frames.aligned_zones, max_rows=20),
+                    "equal_points_html": dataframe_to_html(frames.equal_points, max_rows=20),
+                    "aligned_points_html": dataframe_to_html(frames.aligned_points, max_rows=20),
+                    "metrics_table_html": dataframe_to_html(frames.metrics, max_rows=30),
+                    "download_url": url_for("download_output", filename=artifacts.export_path.name),
                 }
             )
         except Exception as exc:
@@ -110,9 +95,8 @@ def index():
 
 @app.route("/outputs/<path:filename>")
 def download_output(filename: str):
-    return send_from_directory(OUTPUT_DIR, filename, as_attachment=True, attachment_filename=filename)
+    return send_from_directory("outputs", filename, as_attachment=True, attachment_filename=filename)
 
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=False)
-

@@ -5,20 +5,35 @@
 - 等距分区
 - 按模块节距对齐的最优分区
 
-项目已经重构为适合 GitHub 管理的应用结构，包含输入、执行、后处理和本地网页界面。
+项目现在包含三种入口：
+
+- 桌面 GUI
+- CLI
+- 可选网页入口
+
+桌面 GUI 是主入口。
 
 ## 项目结构
 
 ```text
 heater-zoning-optimizer/
-├─ app.py                     # Flask Web 入口
-├─ src/heater_zoning/         # 核心算法、IO、导出、可视化
-├─ templates/                # HTML 模板
-├─ static/                   # 样式资源
-├─ data/                     # 示例输入数据
-├─ outputs/                  # 导出的 Excel 报告
-├─ tests/                    # 基础测试
-└─ legacy/                   # 原始脚本和历史 Excel 输出
+├─ desktop_app.py              # 桌面 GUI 入口
+├─ cli.py                      # 命令行入口
+├─ app.py                      # 可选网页入口
+├─ src/heater_zoning/
+│  ├─ analysis.py              # 核心算法
+│  ├─ config.py                # 参数模型
+│  ├─ exporters.py             # Excel 导出
+│  ├─ gui.py                   # Tkinter 桌面界面
+│  ├─ io_utils.py              # 输入解析
+│  ├─ reporting.py             # 报表数据整理
+│  ├─ runflow.py               # 统一执行流程
+│  └─ visualization.py         # Plotly / Matplotlib 图表
+├─ data/                       # 示例输入
+├─ outputs/                    # 分析输出
+├─ legacy/                     # 原始脚本和历史 Excel
+├─ tests/                      # 自动化测试
+└─ RELEASE.md                  # 发布说明
 ```
 
 ## 输入格式
@@ -28,7 +43,7 @@ heater-zoning-optimizer/
 - `distance_mm`
 - `temperature_c`
 
-也兼容这些常见列名：
+也兼容这些列名：
 
 - `distance` / `x` / `距离`
 - `temperature` / `temp` / `温度`
@@ -41,11 +56,32 @@ heater-zoning-optimizer/
 
 ## 运行
 
+### 桌面界面
+
+```bash
+python desktop_app.py
+```
+
+### CLI
+
+```bash
+python cli.py --help
+```
+
+示例：
+
+```bash
+python cli.py --json
+python cli.py --input data/sample_profile.csv --output-name sample_report.xlsx
+```
+
+### 可选网页界面
+
 ```bash
 python app.py
 ```
 
-启动后访问：
+然后访问：
 
 ```text
 http://127.0.0.1:5000
@@ -54,19 +90,18 @@ http://127.0.0.1:5000
 ## 主要能力
 
 - 上传或使用示例温度剖面
-- 配置分区与模块约束参数
-- 生成两类分区方案
-- 查看温度分区图、模块布局图、指标对比图、雷达图
+- 配置分区和模块安装约束
+- 生成等距分区与模块对齐分区
+- 显示温度分区图、模块布局图、指标柱状图、雷达图
+- 在图中显示每个分区的虚线边界
 - 导出美化后的 Excel 报告
 
 ## 测试
 
 ```bash
-python -m unittest discover -s tests
+python -m unittest discover -s tests -v
 ```
 
-## 说明
+## 发布
 
-- 原始脚本已移动到 `legacy/`
-- 当前界面为本地单用户分析台，适合个人研究和方案比较
-
+发布相关说明见 [RELEASE.md](RELEASE.md)。

@@ -1,5 +1,5 @@
 import math
-from typing import Dict, List, Sequence, Tuple
+from typing import List, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -172,9 +172,7 @@ def build_zone_result(
     )
 
 
-def build_equal_zones(
-    dist: np.ndarray, temp: np.ndarray, config: AnalysisConfig
-) -> List[ZoneResult]:
+def build_equal_zones(dist: np.ndarray, temp: np.ndarray, config: AnalysisConfig) -> List[ZoneResult]:
     edges = build_equal_edges(config.total_length, config.equal_zone_count)
     zones = []
     for idx in range(config.equal_zone_count):
@@ -242,9 +240,7 @@ def optimal_partition_aligned(
     return edges, zone_indexes, mean_table
 
 
-def build_aligned_zones(
-    dist: np.ndarray, temp: np.ndarray, config: AnalysisConfig
-) -> List[ZoneResult]:
+def build_aligned_zones(dist: np.ndarray, temp: np.ndarray, config: AnalysisConfig) -> List[ZoneResult]:
     weights = compute_weights(dist, temp, config.alpha)
     edges, zone_indexes, mean_table = optimal_partition_aligned(dist, temp, weights, config)
     total = len(zone_indexes)
@@ -330,7 +326,9 @@ def evaluate_zoning_quality(
     )
 
 
-def representative_points_dataframe(zones: Sequence[ZoneResult], dist: np.ndarray, temp: np.ndarray, method_name: str) -> pd.DataFrame:
+def representative_points_dataframe(
+    zones: Sequence[ZoneResult], dist: np.ndarray, temp: np.ndarray, method_name: str
+) -> pd.DataFrame:
     rows = []
     for zone in zones:
         zone_length = zone.end_mm - zone.start_mm
@@ -418,4 +416,3 @@ def analyze_profile(profile_df: pd.DataFrame, config: AnalysisConfig) -> Analysi
         equal_metrics=equal_metrics,
         aligned_metrics=aligned_metrics,
     )
-

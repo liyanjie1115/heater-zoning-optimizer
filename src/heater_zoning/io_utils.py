@@ -1,4 +1,5 @@
 from io import BytesIO
+from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
@@ -64,5 +65,17 @@ def read_profile_upload(file_storage) -> pd.DataFrame:
     else:
         raise ValueError("仅支持 CSV 或 Excel 文件。")
 
+    return normalize_profile_dataframe(df)
+
+
+def read_profile_file(file_path: str) -> pd.DataFrame:
+    path = Path(file_path)
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        df = pd.read_csv(path)
+    elif suffix in {".xlsx", ".xls"}:
+        df = pd.read_excel(path)
+    else:
+        raise ValueError("仅支持 CSV 或 Excel 文件。")
     return normalize_profile_dataframe(df)
 
