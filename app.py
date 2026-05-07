@@ -25,6 +25,18 @@ def parse_config(form) -> AnalysisConfig:
         module_length=float(form.get("module_length", 23.0)),
         module_gap=float(form.get("module_gap", 10.0)),
         outer_edge_allow=float(form.get("outer_edge_allow", 10.0)),
+        sample_left_ratio=float(form.get("sample_left_ratio", 0.30)),
+        sample_mid_ratio=float(form.get("sample_mid_ratio", 0.50)),
+        sample_right_ratio=float(form.get("sample_right_ratio", 0.70)),
+        fit_weight=float(form.get("fit_weight", 0.32)),
+        separation_weight=float(form.get("separation_weight", 0.22)),
+        gradient_weight=float(form.get("gradient_weight", 0.24)),
+        heater_weight=float(form.get("heater_weight", 0.12)),
+        balance_weight=float(form.get("balance_weight", 0.10)),
+        fit_decay=float(form.get("fit_decay", 850.0)),
+        heater_decay=float(form.get("heater_decay", 16.0)),
+        internal_violation_penalty=float(form.get("internal_violation_penalty", 0.18)),
+        size_compliance_penalty=float(form.get("size_compliance_penalty", 0.08)),
     ).validate()
 
 

@@ -33,6 +33,8 @@ class MethodMetrics:
     heater_mismatch: float
     balance_score: float
     internal_violations: int
+    weighted_fit_error: float
+    gradient_capture_score: float
     composite_score: float
     total_modules: int
     total_install_length_mm: float
@@ -44,7 +46,9 @@ class MethodMetrics:
     def to_display_rows(self, method_name: str) -> List[Dict[str, float]]:
         return [
             {"方法": method_name, "指标": "区内拟合误差 E_fit", "值": self.e_fit},
+            {"方法": method_name, "指标": "加权拟合误差", "值": self.weighted_fit_error},
             {"方法": method_name, "指标": "分区分离度 E_sep", "值": self.e_sep},
+            {"方法": method_name, "指标": "梯度边界贴合度", "值": self.gradient_capture_score},
             {"方法": method_name, "指标": "尺寸合规率", "值": self.size_compliance},
             {"方法": method_name, "指标": "安装长度误差", "值": self.heater_mismatch},
             {"方法": method_name, "指标": "均衡性", "值": self.balance_score},
@@ -67,4 +71,3 @@ class AnalysisResult:
     aligned_zones: List[ZoneResult]
     equal_metrics: MethodMetrics
     aligned_metrics: MethodMetrics
-

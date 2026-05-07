@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from .analysis import metrics_dataframe, representative_points_dataframe, zones_dataframe
+from .config import AnalysisConfig
 from .models import AnalysisResult
 
 
@@ -19,12 +20,13 @@ class ReportFrames:
 def build_report_frames(result: AnalysisResult) -> ReportFrames:
     distance = result.profile_df["distance_mm"].to_numpy()
     temperature = result.profile_df["temperature_c"].to_numpy()
+    config = AnalysisConfig(**result.config).validate()
     return ReportFrames(
         profile=result.profile_df.copy(),
         equal_zones=zones_dataframe(result.equal_zones, "等距分区", distance, temperature),
         aligned_zones=zones_dataframe(result.aligned_zones, "模块对齐分区", distance, temperature),
-        equal_points=representative_points_dataframe(result.equal_zones, distance, temperature, "等距分区"),
-        aligned_points=representative_points_dataframe(result.aligned_zones, distance, temperature, "模块对齐分区"),
+        equal_points=representative_points_dataframe(result.equal_zones, distance, temperature, "等距分区", config),
+        aligned_points=representative_points_dataframe(result.aligned_zones, distance, temperature, "模块对齐分区", config),
         metrics=metrics_dataframe(result.equal_metrics, result.aligned_metrics),
     )
 
@@ -59,4 +61,3 @@ def build_zone_summary_table(result: AnalysisResult) -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows)
-

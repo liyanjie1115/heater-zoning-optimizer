@@ -9,7 +9,10 @@ datas = [
 ]
 
 hiddenimports = [
-    "matplotlib.backends.backend_tkagg",
+    "matplotlib.backends.backend_qtagg",
+    "PySide6.QtCore",
+    "PySide6.QtGui",
+    "PySide6.QtWidgets",
     "openpyxl",
     "pandas",
 ]
@@ -42,4 +45,3 @@ exe = EXE(
     upx=True,
     console=False,
 )
-

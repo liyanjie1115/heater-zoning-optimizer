@@ -166,5 +166,6 @@ def export_summary_pdf(result: AnalysisResult, output_path: Path) -> Path:
             plt.close(figure)
 
     return output_path
-configure_matplotlib_fonts()
 
+
+configure_matplotlib_fonts()

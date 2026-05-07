@@ -21,6 +21,8 @@ class AnalysisSmokeTest(unittest.TestCase):
         self.assertLessEqual(len(result.aligned_zones), 8)
         self.assertGreater(result.equal_metrics.total_modules, 0)
         self.assertGreater(result.aligned_metrics.total_modules, 0)
+        self.assertGreater(result.aligned_metrics.composite_score, result.equal_metrics.composite_score)
+        self.assertGreater(result.aligned_metrics.gradient_capture_score, result.equal_metrics.gradient_capture_score)
 
     def test_normalize_profile_dataframe_accepts_alias_columns(self):
         raw = pd.DataFrame(

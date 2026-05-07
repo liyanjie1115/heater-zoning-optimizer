@@ -78,4 +78,3 @@ def read_profile_file(file_path: str) -> pd.DataFrame:
     else:
         raise ValueError("仅支持 CSV 或 Excel 文件。")
     return normalize_profile_dataframe(df)
-

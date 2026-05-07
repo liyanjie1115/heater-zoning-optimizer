@@ -35,15 +35,21 @@ def get_segment_points_with_interpolation(
     return x_all[order], t_all[order]
 
 
-def compute_weights(dist: np.ndarray, temp: np.ndarray, alpha: float) -> np.ndarray:
-    grad = np.zeros(len(temp))
+def compute_gradient_profile(dist: np.ndarray, temp: np.ndarray) -> np.ndarray:
+    gradients = np.zeros(len(temp), dtype=float)
     for idx in range(1, len(temp)):
         dx = dist[idx] - dist[idx - 1]
         if dx > 0:
-            grad[idx] = abs(temp[idx] - temp[idx - 1]) / dx
+            gradients[idx] = abs(temp[idx] - temp[idx - 1]) / dx
+    if len(gradients) > 2:
+        gradients[0] = gradients[1]
+    return gradients
 
-    gmax = np.max(grad) if np.max(grad) > 0 else 1.0
-    return 1.0 + alpha * (grad / gmax)
+
+def compute_weights(dist: np.ndarray, temp: np.ndarray, alpha: float) -> np.ndarray:
+    gradients = compute_gradient_profile(dist, temp)
+    gmax = float(np.max(gradients)) if float(np.max(gradients)) > 0 else 1.0
+    return 1.0 + alpha * (gradients / gmax)
 
 
 def calc_max_fittable_modules(
@@ -262,21 +268,42 @@ def build_aligned_zones(dist: np.ndarray, temp: np.ndarray, config: AnalysisConf
     return zones
 
 
+def _boundary_gradient_score(
+    dist: np.ndarray,
+    gradient_norm: np.ndarray,
+    zones: Sequence[ZoneResult],
+) -> float:
+    boundaries = [zone.end_mm for zone in zones[:-1]]
+    if not boundaries:
+        return 0.0
+    boundary_values = [float(np.interp(boundary, dist, gradient_norm)) for boundary in boundaries]
+    return float(np.mean(boundary_values))
+
+
 def evaluate_zoning_quality(
     dist: np.ndarray, temp: np.ndarray, zones: Sequence[ZoneResult], config: AnalysisConfig
 ) -> MethodMetrics:
+    gradients = compute_gradient_profile(dist, temp)
+    gmax = float(np.max(gradients)) if float(np.max(gradients)) > 0 else 1.0
+    gradient_norm = gradients / gmax
+    point_weights = 1.0 + config.alpha * gradient_norm
+
     zone_means = []
     zone_sizes = []
     fit_error = 0.0
+    weighted_fit_error = 0.0
     heater_errors = []
     internal_violations = 0
 
     for zone in zones:
-        _, seg_t = get_segment_points_with_interpolation(dist, temp, zone.start_mm, zone.end_mm)
+        seg_x, seg_t = get_segment_points_with_interpolation(dist, temp, zone.start_mm, zone.end_mm)
+        seg_w = np.interp(seg_x, dist, point_weights)
         mean = float(np.mean(seg_t))
+        weighted_mean = float(np.sum(seg_w * seg_t) / np.sum(seg_w))
         zone_means.append(mean)
         zone_sizes.append(zone.size_mm)
         fit_error += float(np.sum((seg_t - mean) ** 2))
+        weighted_fit_error += float(np.sum(seg_w * (seg_t - weighted_mean) ** 2))
 
         effective_size = zone.size_mm
         if zone.is_first:
@@ -291,6 +318,7 @@ def evaluate_zoning_quality(
     n_points = len(temp)
     zone_count = len(zones)
     e_fit = fit_error / n_points if n_points else float("inf")
+    weighted_e_fit = weighted_fit_error / max(float(np.sum(point_weights)), 1.0)
     e_sep = (
         float(np.mean([abs(zone_means[idx + 1] - zone_means[idx]) for idx in range(zone_count - 1)]))
         if zone_count > 1
@@ -301,13 +329,25 @@ def evaluate_zoning_quality(
     )
     heater_mismatch = float(np.mean(heater_errors)) if heater_errors else float("inf")
     cv = float(np.std(zone_sizes) / np.mean(zone_sizes)) if zone_count > 1 else 0.0
+    gradient_capture = _boundary_gradient_score(dist, gradient_norm, zones)
 
-    s_fit = math.exp(-e_fit / 1000.0)
+    s_fit = math.exp(-weighted_e_fit / config.fit_decay)
     s_sep = e_sep / (max(zone_means) - min(zone_means) + 1e-6) if len(zone_means) > 1 else 0.0
-    s_heater = math.exp(-heater_mismatch / 10.0)
+    s_heater = math.exp(-heater_mismatch / config.heater_decay)
     s_balance = 1.0 / (1.0 + cv)
-    penalty = 0.15 * internal_violations
-    composite = max(0.0, 0.35 * s_fit + 0.25 * s_sep + 0.2 * s_heater + 0.2 * s_balance - penalty)
+    penalty = config.internal_violation_penalty * internal_violations + config.size_compliance_penalty * max(0.0, 1.0 - size_compliance)
+    total_weight = config.fit_weight + config.separation_weight + config.gradient_weight + config.heater_weight + config.balance_weight
+    composite = max(
+        0.0,
+        (
+            config.fit_weight * s_fit
+            + config.separation_weight * s_sep
+            + config.gradient_weight * gradient_capture
+            + config.heater_weight * s_heater
+            + config.balance_weight * s_balance
+        ) / total_weight
+        - penalty,
+    )
 
     return MethodMetrics(
         e_fit=float(e_fit),
@@ -316,6 +356,8 @@ def evaluate_zoning_quality(
         heater_mismatch=float(heater_mismatch),
         balance_score=float(s_balance),
         internal_violations=internal_violations,
+        weighted_fit_error=float(weighted_e_fit),
+        gradient_capture_score=float(gradient_capture),
         composite_score=float(composite),
         total_modules=int(sum(zone.modules for zone in zones)),
         total_install_length_mm=float(sum(zone.install_length_mm for zone in zones)),
@@ -327,15 +369,15 @@ def evaluate_zoning_quality(
 
 
 def representative_points_dataframe(
-    zones: Sequence[ZoneResult], dist: np.ndarray, temp: np.ndarray, method_name: str
+    zones: Sequence[ZoneResult], dist: np.ndarray, temp: np.ndarray, method_name: str, config: AnalysisConfig
 ) -> pd.DataFrame:
     rows = []
     for zone in zones:
         zone_length = zone.end_mm - zone.start_mm
         points = {
-            "左点": zone.start_mm + 0.30 * zone_length,
-            "中点": zone.start_mm + 0.50 * zone_length,
-            "右点": zone.end_mm - 0.30 * zone_length,
+            "左点": zone.start_mm + config.sample_left_ratio * zone_length,
+            "中点": zone.start_mm + config.sample_mid_ratio * zone_length,
+            "右点": zone.start_mm + config.sample_right_ratio * zone_length,
         }
         for point_name, x_pos in points.items():
             rows.append(
@@ -358,10 +400,7 @@ def zones_dataframe(zones: Sequence[ZoneResult], method_name: str, dist: np.ndar
     for zone in zones:
         midpoint = 0.5 * (zone.start_mm + zone.end_mm)
         midpoint_temp = float(np.interp(midpoint, dist, temp))
-        positions_text = "; ".join(
-            f"M{idx + 1}:[{start:.1f},{end:.1f}]"
-            for idx, (start, end) in enumerate(zone.module_positions)
-        )
+        positions_text = "; ".join(f"M{idx + 1}:[{start:.1f},{end:.1f}]" for idx, (start, end) in enumerate(zone.module_positions))
         rows.append(
             {
                 "方法": method_name,

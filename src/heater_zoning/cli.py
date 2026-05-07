@@ -17,6 +17,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--module-length", type=float, default=23.0)
     parser.add_argument("--module-gap", type=float, default=10.0)
     parser.add_argument("--outer-edge-allow", type=float, default=10.0)
+    parser.add_argument("--sample-left-ratio", type=float, default=0.30)
+    parser.add_argument("--sample-mid-ratio", type=float, default=0.50)
+    parser.add_argument("--sample-right-ratio", type=float, default=0.70)
+    parser.add_argument("--fit-weight", type=float, default=0.32)
+    parser.add_argument("--separation-weight", type=float, default=0.22)
+    parser.add_argument("--gradient-weight", type=float, default=0.24)
+    parser.add_argument("--heater-weight", type=float, default=0.12)
+    parser.add_argument("--balance-weight", type=float, default=0.10)
+    parser.add_argument("--fit-decay", type=float, default=850.0)
+    parser.add_argument("--heater-decay", type=float, default=16.0)
+    parser.add_argument("--internal-violation-penalty", type=float, default=0.18)
+    parser.add_argument("--size-compliance-penalty", type=float, default=0.08)
     parser.add_argument("--json", action="store_true", help="Print JSON summary.")
     return parser
 
@@ -31,6 +43,18 @@ def main(argv=None) -> int:
         module_length=args.module_length,
         module_gap=args.module_gap,
         outer_edge_allow=args.outer_edge_allow,
+        sample_left_ratio=args.sample_left_ratio,
+        sample_mid_ratio=args.sample_mid_ratio,
+        sample_right_ratio=args.sample_right_ratio,
+        fit_weight=args.fit_weight,
+        separation_weight=args.separation_weight,
+        gradient_weight=args.gradient_weight,
+        heater_weight=args.heater_weight,
+        balance_weight=args.balance_weight,
+        fit_decay=args.fit_decay,
+        heater_decay=args.heater_decay,
+        internal_violation_penalty=args.internal_violation_penalty,
+        size_compliance_penalty=args.size_compliance_penalty,
     ).validate()
 
     artifacts = run_analysis_pipeline(
@@ -61,4 +85,3 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
