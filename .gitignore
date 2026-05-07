@@ -1,6 +1,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.coverage
+dist/
+build/
 
 .Python
 .venv/
@@ -10,3 +14,6 @@ ENV/
 
 .idea/
 *.iml
+outputs/*.xlsx
+outputs/*.log
+!outputs/.gitkeep

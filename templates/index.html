@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heater Zoning Optimizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-block">
+                <div class="eyebrow">Heater Zoning Optimizer</div>
+                <h1>加热分区分析台</h1>
+                <p>输入温度剖面，比较等距分区与模块对齐分区，输出布局和 Excel 报告。</p>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="control-form">
+                <section class="form-section">
+                    <div class="section-title">数据输入</div>
+                    <label class="radio-card">
+                        <input type="radio" name="data_source" value="sample" {% if active_source != 'upload' %}checked{% endif %}>
+                        <span>使用示例数据</span>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="data_source" value="upload" {% if active_source == 'upload' %}checked{% endif %}>
+                        <span>上传 CSV / Excel</span>
+                    </label>
+                    <input type="file" name="profile_file" accept=".csv,.xlsx,.xls" class="file-input">
+                </section>
+
+                <section class="form-section">
+                    <div class="section-title">分区参数</div>
+                    <div class="field-grid">
+                        <label>
+                            <span>总长度 (mm)</span>
+                            <input type="number" step="0.1" name="total_length" value="{{ default_config.total_length }}">
+                        </label>
+                        <label>
+                            <span>最大分区数</span>
+                            <input type="number" step="1" name="max_zones" value="{{ default_config.max_zones }}">
+                        </label>
+                        <label>
+                            <span>等距分区数</span>
+                            <input type="number" step="1" name="equal_zone_count" value="{{ default_config.equal_zone_count }}">
+                        </label>
+                        <label>
+                            <span>梯度权重 α</span>
+                            <input type="number" step="0.1" name="alpha" value="{{ default_config.alpha }}">
+                        </label>
+                    </div>
+                </section>
+
+                <section class="form-section">
+                    <div class="section-title">模块约束</div>
+                    <div class="field-grid">
+                        <label>
+                            <span>模块长度 (mm)</span>
+                            <input type="number" step="0.1" name="module_length" value="{{ default_config.module_length }}">
+                        </label>
+                        <label>
+                            <span>模块间距 (mm)</span>
+                            <input type="number" step="0.1" name="module_gap" value="{{ default_config.module_gap }}">
+                        </label>
+                        <label>
+                            <span>边缘外伸余量 (mm)</span>
+                            <input type="number" step="0.1" name="outer_edge_allow" value="{{ default_config.outer_edge_allow }}">
+                        </label>
+                    </div>
+                </section>
+
+                <button type="submit" class="primary-button">运行分析</button>
+            </form>
+        </aside>
+
+        <main class="content">
+            <section class="panel intro-panel">
+                <div>
+                    <div class="panel-title">输入预览</div>
+                    <p class="panel-subtitle">要求两列数据：距离和温度，距离需单调递增并覆盖总长度。</p>
+                </div>
+                <div class="table-wrap">{{ input_preview_html|safe }}</div>
+            </section>
+
+            {% if error_message %}
+            <section class="panel error-panel">
+                <div class="panel-title">输入或执行失败</div>
+                <p>{{ error_message }}</p>
+            </section>
+            {% endif %}
+
+            {% if result_ready %}
+            <section class="score-grid">
+                <article class="score-card">
+                    <div class="score-label">等距分区得分</div>
+                    <div class="score-value">{{ "%.3f"|format(equal_metrics.composite_score) }}</div>
+                    <div class="score-meta">模块数 {{ equal_metrics.total_modules }} | 误差 {{ "%.3f"|format(equal_metrics.heater_mismatch) }}</div>
+                </article>
+                <article class="score-card accent">
+                    <div class="score-label">模块对齐得分</div>
+                    <div class="score-value">{{ "%.3f"|format(aligned_metrics.composite_score) }}</div>
+                    <div class="score-meta">模块数 {{ aligned_metrics.total_modules }} | 误差 {{ "%.3f"|format(aligned_metrics.heater_mismatch) }}</div>
+                </article>
+                <article class="score-card">
+                    <div class="score-label">报告导出</div>
+                    <div class="score-value small">Excel</div>
+                    <a class="secondary-button" href="{{ download_url }}">下载结果</a>
+                </article>
+            </section>
+
+            <section class="panel">
+                <div class="panel-title">温度与分区对比</div>
+                {{ temperature_chart|safe }}
+            </section>
+
+            <section class="panel dual-panel">
+                <div>
+                    <div class="panel-title">指标对比</div>
+                    {{ metrics_chart|safe }}
+                </div>
+                <div>
+                    <div class="panel-title">雷达图</div>
+                    {{ radar_chart|safe }}
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-title">模块布局</div>
+                {{ layout_chart|safe }}
+            </section>
+
+            <section class="panel dual-panel">
+                <div>
+                    <div class="panel-title">等距分区结果</div>
+                    <div class="table-wrap">{{ equal_table_html|safe }}</div>
+                </div>
+                <div>
+                    <div class="panel-title">模块对齐分区结果</div>
+                    <div class="table-wrap">{{ aligned_table_html|safe }}</div>
+                </div>
+            </section>
+
+            <section class="panel dual-panel">
+                <div>
+                    <div class="panel-title">等距分区三点采样</div>
+                    <div class="table-wrap">{{ equal_points_html|safe }}</div>
+                </div>
+                <div>
+                    <div class="panel-title">模块对齐三点采样</div>
+                    <div class="table-wrap">{{ aligned_points_html|safe }}</div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-title">评价指标明细</div>
+                <div class="table-wrap">{{ metrics_table_html|safe }}</div>
+            </section>
+            {% endif %}
+        </main>
+    </div>
+</body>
+</html>
+
