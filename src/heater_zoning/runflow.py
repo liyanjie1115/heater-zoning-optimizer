@@ -8,7 +8,12 @@ from .config import AnalysisConfig
 from .exporters import export_analysis_excel
 from .io_utils import normalize_profile_dataframe, read_profile_file
 from .models import AnalysisResult
-from .reporting import ReportFrames, build_report_frames, build_summary_cards, build_zone_summary_table
+from .reporting import (
+    ReportFrames,
+    build_report_frames,
+    build_summary_cards,
+    build_zone_summary_table,
+)
 from .sample_data import sample_profile_dataframe
 
 
@@ -58,7 +63,7 @@ def run_analysis_for_dataframe(
 
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
-    filename = output_name or f"heater_zoning_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = output_name or f"heater_zoning_report_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.xlsx"
     export_path = export_analysis_excel(result, output_root / filename)
     return AnalysisArtifacts(
         result=result,
@@ -67,4 +72,3 @@ def run_analysis_for_dataframe(
         zone_summary=zone_summary,
         export_path=export_path,
     )
-

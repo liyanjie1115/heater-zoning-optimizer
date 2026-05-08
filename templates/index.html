@@ -12,10 +12,31 @@
             <div class="brand-block">
                 <div class="eyebrow">Heater Zoning Optimizer</div>
                 <h1>加热分区分析台</h1>
-                <p>输入温度剖面，比较等距分区与模块对齐分区，输出布局和 Excel 报告。</p>
+                <p>输入温度剖面，快速得到推荐方案、关键差异和可导出的决策报表。</p>
+            </div>
+
+            <div class="sidebar-note">
+                <div class="section-title">使用提示</div>
+                <ul class="hint-list">
+                    <li>先看推荐结论，再看关键指标差异，最后用原始表确认落地细节。</li>
+                    <li>归一化图看相对优势，指标明细表看原始数值。</li>
+                    <li>如果更关心施工代价，重点看模块数、安装误差和外伸长度。</li>
+                </ul>
             </div>
 
             <form method="post" enctype="multipart/form-data" class="control-form">
+                <section class="form-section">
+                    <div class="section-title">参数模板</div>
+                    <label>
+                        <span>推荐预设</span>
+                        <select name="preset_key" class="select-input">
+                            {% for preset in preset_options %}
+                            <option value="{{ preset.value }}" {% if active_preset == preset.value %}selected{% endif %}>{{ preset.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </section>
+
                 <section class="form-section">
                     <div class="section-title">数据输入</div>
                     <label class="radio-card">
@@ -30,7 +51,7 @@
                 </section>
 
                 <section class="form-section">
-                    <div class="section-title">分区参数</div>
+                    <div class="section-title">基础参数</div>
                     <div class="field-grid">
                         <label>
                             <span>总长度 (mm)</span>
@@ -69,6 +90,60 @@
                     </div>
                 </section>
 
+                <details class="form-section advanced-section">
+                    <summary class="advanced-summary">专家参数</summary>
+                    <div class="advanced-grid">
+                        <label>
+                            <span>左采样比例</span>
+                            <input type="number" step="0.01" name="sample_left_ratio" value="{{ default_config.sample_left_ratio }}">
+                        </label>
+                        <label>
+                            <span>中采样比例</span>
+                            <input type="number" step="0.01" name="sample_mid_ratio" value="{{ default_config.sample_mid_ratio }}">
+                        </label>
+                        <label>
+                            <span>右采样比例</span>
+                            <input type="number" step="0.01" name="sample_right_ratio" value="{{ default_config.sample_right_ratio }}">
+                        </label>
+                        <label>
+                            <span>拟合权重</span>
+                            <input type="number" step="0.01" name="fit_weight" value="{{ default_config.fit_weight }}">
+                        </label>
+                        <label>
+                            <span>分离权重</span>
+                            <input type="number" step="0.01" name="separation_weight" value="{{ default_config.separation_weight }}">
+                        </label>
+                        <label>
+                            <span>梯度权重</span>
+                            <input type="number" step="0.01" name="gradient_weight" value="{{ default_config.gradient_weight }}">
+                        </label>
+                        <label>
+                            <span>安装权重</span>
+                            <input type="number" step="0.01" name="heater_weight" value="{{ default_config.heater_weight }}">
+                        </label>
+                        <label>
+                            <span>均衡权重</span>
+                            <input type="number" step="0.01" name="balance_weight" value="{{ default_config.balance_weight }}">
+                        </label>
+                        <label>
+                            <span>拟合衰减</span>
+                            <input type="number" step="0.1" name="fit_decay" value="{{ default_config.fit_decay }}">
+                        </label>
+                        <label>
+                            <span>安装衰减</span>
+                            <input type="number" step="0.1" name="heater_decay" value="{{ default_config.heater_decay }}">
+                        </label>
+                        <label>
+                            <span>内部违规惩罚</span>
+                            <input type="number" step="0.01" name="internal_violation_penalty" value="{{ default_config.internal_violation_penalty }}">
+                        </label>
+                        <label>
+                            <span>尺寸合规惩罚</span>
+                            <input type="number" step="0.01" name="size_compliance_penalty" value="{{ default_config.size_compliance_penalty }}">
+                        </label>
+                    </div>
+                </details>
+
                 <button type="submit" class="primary-button">运行分析</button>
             </form>
         </aside>
@@ -77,7 +152,7 @@
             <section class="panel intro-panel">
                 <div>
                     <div class="panel-title">输入预览</div>
-                    <p class="panel-subtitle">要求两列数据：距离和温度，距离需单调递增并覆盖总长度。</p>
+                    <p class="panel-subtitle">要求两列数据：距离和温度。距离需要单调递增，并覆盖到总长度终点。</p>
                 </div>
                 <div class="table-wrap">{{ input_preview_html|safe }}</div>
             </section>
@@ -93,19 +168,60 @@
             <section class="score-grid">
                 <article class="score-card">
                     <div class="score-label">等距分区得分</div>
-                    <div class="score-value">{{ "%.3f"|format(equal_metrics.composite_score) }}</div>
-                    <div class="score-meta">模块数 {{ equal_metrics.total_modules }} | 误差 {{ "%.3f"|format(equal_metrics.heater_mismatch) }}</div>
+                    <div class="score-value">{{ "%.2f"|format(equal_metrics.composite_score) }}</div>
+                    <div class="score-meta">模块数 {{ equal_metrics.total_modules }} | 安装误差 {{ "%.2f"|format(equal_metrics.heater_mismatch) }}</div>
                 </article>
                 <article class="score-card accent">
                     <div class="score-label">模块对齐得分</div>
-                    <div class="score-value">{{ "%.3f"|format(aligned_metrics.composite_score) }}</div>
-                    <div class="score-meta">模块数 {{ aligned_metrics.total_modules }} | 误差 {{ "%.3f"|format(aligned_metrics.heater_mismatch) }}</div>
+                    <div class="score-value">{{ "%.2f"|format(aligned_metrics.composite_score) }}</div>
+                    <div class="score-meta">模块数 {{ aligned_metrics.total_modules }} | 安装误差 {{ "%.2f"|format(aligned_metrics.heater_mismatch) }}</div>
                 </article>
                 <article class="score-card">
-                    <div class="score-label">报告导出</div>
+                    <div class="score-label">结果导出</div>
                     <div class="score-value small">Excel</div>
                     <a class="secondary-button" href="{{ download_url }}">下载结果</a>
                 </article>
+            </section>
+
+            <section class="panel recommendation-panel">
+                <div class="recommendation-header">
+                    <div>
+                        <div class="panel-title">推荐结论</div>
+                        <p class="panel-subtitle">{{ recommendation.message }}</p>
+                    </div>
+                    <div class="winner-pill">{{ recommendation.winner }}</div>
+                </div>
+                <div class="decision-overview">
+                    {% for item in decision_overview %}
+                    <div class="decision-chip">
+                        <div class="decision-chip-label">{{ item.label }}</div>
+                        <div class="decision-chip-value">{{ item.value }}</div>
+                        {% if item.meta %}
+                        <div class="decision-chip-meta">{{ item.meta }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="summary-grid">
+                    {% for card in summary_cards %}
+                    <article class="summary-card">
+                        <div class="summary-label">{{ card.label }}</div>
+                        <div class="summary-value">{{ card.value }}</div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-title">当前分析设置</div>
+                <div class="snapshot-grid">
+                    {% for item in config_snapshot %}
+                    <div class="snapshot-item">
+                        <div class="snapshot-label">{{ item.label }}</div>
+                        <div class="snapshot-value">{{ item.value }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
             </section>
 
             <section class="panel">
@@ -115,49 +231,86 @@
 
             <section class="panel dual-panel">
                 <div>
-                    <div class="panel-title">指标对比</div>
+                    <div class="panel-title">归一化指标对比</div>
+                    <p class="chart-note">柱状图用于看相对优势，悬停可查看原始值；最终推荐仍以原始指标和综合得分计算。</p>
                     {{ metrics_chart|safe }}
                 </div>
                 <div>
-                    <div class="panel-title">雷达图</div>
+                    <div class="panel-title">质量雷达图</div>
+                    <p class="chart-note">雷达图适合快速判断两种方案在多个质量维度上的形状差异。</p>
                     {{ radar_chart|safe }}
                 </div>
             </section>
 
             <section class="panel">
-                <div class="panel-title">模块布局</div>
-                {{ layout_chart|safe }}
-            </section>
-
-            <section class="panel dual-panel">
-                <div>
-                    <div class="panel-title">等距分区结果</div>
-                    <div class="table-wrap">{{ equal_table_html|safe }}</div>
-                </div>
-                <div>
-                    <div class="panel-title">模块对齐分区结果</div>
-                    <div class="table-wrap">{{ aligned_table_html|safe }}</div>
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title">表格解读</div>
+                        <p class="panel-subtitle">如果你只想快速决策，先看“评价指标明细”和“方案差异摘要”；如果你要落图实施，再看分区结果和三点采样。</p>
+                    </div>
+                    <div class="table-toggle">
+                        <button type="button" class="toggle-button active" data-target="decision-tables">决策视图</button>
+                        <button type="button" class="toggle-button" data-target="engineering-tables">工程视图</button>
+                    </div>
                 </div>
             </section>
 
-            <section class="panel dual-panel">
-                <div>
-                    <div class="panel-title">等距分区三点采样</div>
-                    <div class="table-wrap">{{ equal_points_html|safe }}</div>
-                </div>
-                <div>
-                    <div class="panel-title">模块对齐三点采样</div>
-                    <div class="table-wrap">{{ aligned_points_html|safe }}</div>
-                </div>
-            </section>
+            <div class="table-section active" data-section="decision-tables">
+                <section class="panel">
+                    <div class="panel-title">评价指标明细</div>
+                    <div class="note-grid">
+                        <div class="note-item"><strong>指标方向</strong> 说明该指标是越大越好还是越小越好。</div>
+                        <div class="note-item"><strong>纳入综合得分</strong> 为“是”的指标会直接影响最终推荐。</div>
+                        <div class="note-item"><strong>更优方案</strong> 仅表示该指标谁更占优，不等于最终推荐。</div>
+                    </div>
+                    <div class="table-wrap">{{ metrics_table_html|safe }}</div>
+                </section>
 
-            <section class="panel">
-                <div class="panel-title">评价指标明细</div>
-                <div class="table-wrap">{{ metrics_table_html|safe }}</div>
-            </section>
+                <section class="panel">
+                    <div class="panel-title">方案差异摘要</div>
+                    <p class="panel-subtitle">这里显示模块对齐分区相对等距分区的绝对差值和相对变化，方便判断收益与代价。</p>
+                    <div class="table-wrap">{{ difference_table_html|safe }}</div>
+                </section>
+            </div>
+
+            <div class="table-section" data-section="engineering-tables">
+                <section class="panel dual-panel">
+                    <div>
+                        <div class="panel-title">等距分区结果</div>
+                        <div class="table-wrap">{{ equal_table_html|safe }}</div>
+                    </div>
+                    <div>
+                        <div class="panel-title">模块对齐分区结果</div>
+                        <div class="table-wrap">{{ aligned_table_html|safe }}</div>
+                    </div>
+                </section>
+
+                <section class="panel dual-panel">
+                    <div>
+                        <div class="panel-title">等距分区三点采样</div>
+                        <div class="table-wrap">{{ equal_points_html|safe }}</div>
+                    </div>
+                    <div>
+                        <div class="panel-title">模块对齐三点采样</div>
+                        <div class="table-wrap">{{ aligned_points_html|safe }}</div>
+                    </div>
+                </section>
+            </div>
             {% endif %}
         </main>
     </div>
+
+    <script>
+        document.querySelectorAll(".toggle-button").forEach((button) => {
+            button.addEventListener("click", () => {
+                const target = button.dataset.target;
+                document.querySelectorAll(".toggle-button").forEach((item) => item.classList.remove("active"));
+                document.querySelectorAll(".table-section").forEach((section) => {
+                    section.classList.toggle("active", section.dataset.section === target);
+                });
+                button.classList.add("active");
+            });
+        });
+    </script>
 </body>
 </html>
-

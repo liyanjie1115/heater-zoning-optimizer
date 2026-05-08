@@ -335,8 +335,16 @@ def evaluate_zoning_quality(
     s_sep = e_sep / (max(zone_means) - min(zone_means) + 1e-6) if len(zone_means) > 1 else 0.0
     s_heater = math.exp(-heater_mismatch / config.heater_decay)
     s_balance = 1.0 / (1.0 + cv)
-    penalty = config.internal_violation_penalty * internal_violations + config.size_compliance_penalty * max(0.0, 1.0 - size_compliance)
-    total_weight = config.fit_weight + config.separation_weight + config.gradient_weight + config.heater_weight + config.balance_weight
+    penalty = config.internal_violation_penalty * internal_violations + config.size_compliance_penalty * max(
+        0.0, 1.0 - size_compliance
+    )
+    total_weight = (
+        config.fit_weight
+        + config.separation_weight
+        + config.gradient_weight
+        + config.heater_weight
+        + config.balance_weight
+    )
     composite = max(
         0.0,
         (
@@ -345,7 +353,8 @@ def evaluate_zoning_quality(
             + config.gradient_weight * gradient_capture
             + config.heater_weight * s_heater
             + config.balance_weight * s_balance
-        ) / total_weight
+        )
+        / total_weight
         - penalty,
     )
 
@@ -411,7 +420,7 @@ def zones_dataframe(zones: Sequence[ZoneResult], method_name: str, dist: np.ndar
                 "中点温度_C": midpoint_temp,
                 "分区长度_mm": zone.size_mm,
                 "模块数": zone.modules,
-                "模块长度_mm": zone.body_length_mm / zone.modules if zone.modules else 0.0,
+                "单模块长度_mm": zone.body_length_mm / zone.modules if zone.modules else 0.0,
                 "模块间距_mm": zone.gap_length_mm / (zone.modules - 1) if zone.modules > 1 else 0.0,
                 "模块本体总长_mm": zone.body_length_mm,
                 "模块间距总长_mm": zone.gap_length_mm,
@@ -426,7 +435,31 @@ def zones_dataframe(zones: Sequence[ZoneResult], method_name: str, dist: np.ndar
 
 
 def metrics_dataframe(equal_metrics: MethodMetrics, aligned_metrics: MethodMetrics) -> pd.DataFrame:
-    rows = equal_metrics.to_display_rows("等距分区") + aligned_metrics.to_display_rows("模块对齐分区")
+    equal_values = equal_metrics.metric_value_map()
+    aligned_values = aligned_metrics.metric_value_map()
+    rows = []
+    for definition in MethodMetrics.metric_definitions():
+        equal_value = equal_values[definition.key]
+        aligned_value = aligned_values[definition.key]
+
+        if definition.direction == "越大越好":
+            better_method = "等距分区" if equal_value > aligned_value else "模块对齐分区" if aligned_value > equal_value else "持平"
+        elif definition.direction == "越小越好":
+            better_method = "等距分区" if equal_value < aligned_value else "模块对齐分区" if aligned_value < equal_value else "持平"
+        else:
+            better_method = "按项目判断"
+
+        rows.append(
+            {
+                "指标": definition.label,
+                "指标方向": definition.direction,
+                "纳入综合得分": "是" if definition.included_in_score else "否",
+                "更优方案": better_method,
+                "等距分区": equal_value,
+                "模块对齐分区": aligned_value,
+                "指标说明": definition.description,
+            }
+        )
     return pd.DataFrame(rows)
 
 

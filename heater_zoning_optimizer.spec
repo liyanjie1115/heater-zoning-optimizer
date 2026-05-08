@@ -1,11 +1,25 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 from pathlib import Path
+import sys
 
 project_root = Path.cwd()
+conda_bin = Path(sys.base_prefix) / "Library" / "bin"
+icon_path = project_root / "build_assets" / "app_icon.ico"
+version_path = project_root / "build_assets" / "version_info.txt"
 
 datas = [
     (str(project_root / "data"), "data"),
+]
+
+binaries = [
+    (str(conda_bin / "libcrypto-3-x64.dll"), "."),
+    (str(conda_bin / "liblzma.dll"), "."),
+    (str(conda_bin / "libbz2.dll"), "."),
+    (str(conda_bin / "ffi.dll"), "."),
+    (str(conda_bin / "libssl-3-x64.dll"), "."),
+    (str(conda_bin / "libexpat.dll"), "."),
+    (str(conda_bin / "sqlite3.dll"), "."),
 ]
 
 hiddenimports = [
@@ -20,7 +34,7 @@ hiddenimports = [
 a = Analysis(
     ["desktop_app.py"],
     pathex=[str(project_root)],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
@@ -39,6 +53,8 @@ exe = EXE(
     a.datas,
     [],
     name="heater-zoning-optimizer",
+    icon=str(icon_path),
+    version=str(version_path),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

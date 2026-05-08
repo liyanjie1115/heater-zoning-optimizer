@@ -70,6 +70,37 @@ def _add_zone_shapes(fig, zones: Sequence[ZoneResult], row: int, color: str):
             )
 
 
+def _normalized_metric_pairs(equal_metrics: MethodMetrics, aligned_metrics: MethodMetrics):
+    metric_pairs = [
+        ("加权拟合", equal_metrics.weighted_fit_error, aligned_metrics.weighted_fit_error, "cost"),
+        ("分离度", equal_metrics.e_sep, aligned_metrics.e_sep, "benefit"),
+        ("边界贴合", equal_metrics.gradient_capture_score, aligned_metrics.gradient_capture_score, "benefit"),
+        ("安装匹配", equal_metrics.heater_mismatch, aligned_metrics.heater_mismatch, "cost"),
+        ("综合得分", equal_metrics.composite_score, aligned_metrics.composite_score, "benefit"),
+    ]
+
+    labels: list[str] = []
+    equal_scores: list[float] = []
+    aligned_scores: list[float] = []
+    equal_raw_values: list[float] = []
+    aligned_raw_values: list[float] = []
+
+    for label, equal_raw, aligned_raw, direction in metric_pairs:
+        labels.append(label)
+        equal_raw_values.append(equal_raw)
+        aligned_raw_values.append(aligned_raw)
+        if direction == "cost":
+            baseline = max(min(equal_raw, aligned_raw), 1e-9)
+            equal_scores.append(baseline / max(equal_raw, 1e-9))
+            aligned_scores.append(baseline / max(aligned_raw, 1e-9))
+        else:
+            baseline = max(equal_raw, aligned_raw, 1e-9)
+            equal_scores.append(equal_raw / baseline)
+            aligned_scores.append(aligned_raw / baseline)
+
+    return labels, equal_scores, aligned_scores, equal_raw_values, aligned_raw_values
+
+
 def build_temperature_comparison_figure(
     profile_df: pd.DataFrame, equal_zones: Sequence[ZoneResult], aligned_zones: Sequence[ZoneResult]
 ) -> "go.Figure":
@@ -128,7 +159,14 @@ def build_temperature_comparison_figure(
         plot_bgcolor="white",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0.0},
     )
-    fig.update_xaxes(title_text="距离 (mm)", gridcolor="#e5e7eb", zeroline=False, row=2, col=1, range=[x_min - x_padding, x_max + x_padding])
+    fig.update_xaxes(
+        title_text="距离 (mm)",
+        gridcolor="#e5e7eb",
+        zeroline=False,
+        row=2,
+        col=1,
+        range=[x_min - x_padding, x_max + x_padding],
+    )
     fig.update_yaxes(title_text="温度 (°C)", gridcolor="#e5e7eb", zeroline=False)
     return fig
 
@@ -180,7 +218,10 @@ def build_module_layout_figure(equal_zones: Sequence[ZoneResult], aligned_zones:
                     col=1,
                 )
 
-            label_x = min(max(zone.start_mm + 4.0, x_lower + 6.0), zone.end_mm - 6.0 if zone.end_mm - zone.start_mm > 16 else zone.start_mm + 4.0)
+            label_x = min(
+                max(zone.start_mm + 4.0, x_lower + 6.0),
+                zone.end_mm - 6.0 if zone.end_mm - zone.start_mm > 16 else zone.start_mm + 4.0,
+            )
             fig.add_trace(
                 go.Scatter(
                     x=[label_x],
@@ -201,7 +242,14 @@ def build_module_layout_figure(equal_zones: Sequence[ZoneResult], aligned_zones:
                 col=1,
             )
 
-        fig.update_yaxes(range=[0.4, total + 0.8], row=row_idx, col=1, showticklabels=False, gridcolor="#f3f4f6", zeroline=False)
+        fig.update_yaxes(
+            range=[0.4, total + 0.8],
+            row=row_idx,
+            col=1,
+            showticklabels=False,
+            gridcolor="#f3f4f6",
+            zeroline=False,
+        )
 
     fig.update_layout(
         height=total_height,
@@ -215,25 +263,27 @@ def build_module_layout_figure(equal_zones: Sequence[ZoneResult], aligned_zones:
 
 def build_metrics_bar_figure(equal_metrics: MethodMetrics, aligned_metrics: MethodMetrics) -> "go.Figure":
     _require_plotly()
-    labels = ["加权拟合", "分离度", "边界贴合", "安装匹配", "综合得分"]
-    equal_values = [
-        equal_metrics.weighted_fit_error,
-        equal_metrics.e_sep,
-        equal_metrics.gradient_capture_score,
-        equal_metrics.heater_mismatch,
-        equal_metrics.composite_score,
-    ]
-    aligned_values = [
-        aligned_metrics.weighted_fit_error,
-        aligned_metrics.e_sep,
-        aligned_metrics.gradient_capture_score,
-        aligned_metrics.heater_mismatch,
-        aligned_metrics.composite_score,
-    ]
+    labels, equal_values, aligned_values, equal_raw_values, aligned_raw_values = _normalized_metric_pairs(
+        equal_metrics, aligned_metrics
+    )
 
     fig = go.Figure()
-    fig.add_bar(name="等距分区", x=labels, y=equal_values, marker_color="#2563eb")
-    fig.add_bar(name="模块对齐分区", x=labels, y=aligned_values, marker_color="#dc2626")
+    fig.add_bar(
+        name="等距分区",
+        x=labels,
+        y=equal_values,
+        customdata=np.column_stack((equal_raw_values, equal_values)),
+        marker_color="#2563eb",
+        hovertemplate="原始值: %{customdata[0]:.2f}<br>归一化得分: %{customdata[1]:.2f}<extra></extra>",
+    )
+    fig.add_bar(
+        name="模块对齐分区",
+        x=labels,
+        y=aligned_values,
+        customdata=np.column_stack((aligned_raw_values, aligned_values)),
+        marker_color="#dc2626",
+        hovertemplate="原始值: %{customdata[0]:.2f}<br>归一化得分: %{customdata[1]:.2f}<extra></extra>",
+    )
     fig.update_layout(
         barmode="group",
         height=460,
@@ -243,7 +293,7 @@ def build_metrics_bar_figure(equal_metrics: MethodMetrics, aligned_metrics: Meth
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0.0},
     )
     fig.update_xaxes(tickangle=-12)
-    fig.update_yaxes(gridcolor="#e5e7eb", zeroline=False)
+    fig.update_yaxes(title_text="归一化对比得分", range=[0.0, 1.05], gridcolor="#e5e7eb", zeroline=False)
     return fig
 
 
@@ -272,7 +322,9 @@ def build_metrics_radar_figure(equal_metrics: MethodMetrics, aligned_metrics: Me
 
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(r=equal_values, theta=labels, fill="toself", name="等距分区", line={"color": "#2563eb"}))
-    fig.add_trace(go.Scatterpolar(r=aligned_values, theta=labels, fill="toself", name="模块对齐分区", line={"color": "#dc2626"}))
+    fig.add_trace(
+        go.Scatterpolar(r=aligned_values, theta=labels, fill="toself", name="模块对齐分区", line={"color": "#dc2626"})
+    )
     fig.update_layout(
         height=620,
         margin={"l": 52, "r": 52, "t": 36, "b": 36},
@@ -304,7 +356,14 @@ def build_temperature_comparison_matplotlib(
         (axes[0], "等距分区", equal_zones, "#2563eb", "#bfdbfe"),
         (axes[1], "模块对齐最优分区", aligned_zones, "#dc2626", "#fecaca"),
     ):
-        axis.plot(profile_df["distance_mm"], profile_df["temperature_c"], color="#0f172a", marker="o", linewidth=1.8, markersize=4)
+        axis.plot(
+            profile_df["distance_mm"],
+            profile_df["temperature_c"],
+            color="#0f172a",
+            marker="o",
+            linewidth=1.8,
+            markersize=4,
+        )
         for boundary in _zone_boundaries(zones):
             axis.axvline(boundary, linestyle="--", color="#94a3b8", linewidth=1.0, alpha=0.9)
         for zone in zones:
@@ -336,10 +395,20 @@ def build_module_layout_matplotlib(equal_zones: Sequence[ZoneResult], aligned_zo
         for index, zone in enumerate(zones, start=1):
             y = total - index + 1
             axis.add_patch(
-                plt.Rectangle((zone.start_mm, y - 0.28), zone.size_mm, 0.56, fill=False, edgecolor="#64748b", linestyle="--", linewidth=1.0)
+                plt.Rectangle(
+                    (zone.start_mm, y - 0.28),
+                    zone.size_mm,
+                    0.56,
+                    fill=False,
+                    edgecolor="#64748b",
+                    linestyle="--",
+                    linewidth=1.0,
+                )
             )
             for start, end in zone.module_positions:
-                axis.add_patch(plt.Rectangle((start, y - 0.18), end - start, 0.36, facecolor=fill, edgecolor=color, linewidth=1.0))
+                axis.add_patch(
+                    plt.Rectangle((start, y - 0.18), end - start, 0.36, facecolor=fill, edgecolor=color, linewidth=1.0)
+                )
 
             label_x = zone.start_mm + min(max(zone.size_mm * 0.03, 3.0), 10.0)
             axis.text(label_x, y + 0.34, f"Z{zone.zone_id} | {zone.modules} 模块", fontsize=9, color="#0f172a", clip_on=False)
@@ -355,21 +424,7 @@ def build_module_layout_matplotlib(equal_zones: Sequence[ZoneResult], aligned_zo
 
 
 def build_metrics_bar_matplotlib(equal_metrics: MethodMetrics, aligned_metrics: MethodMetrics) -> Figure:
-    labels = ["加权拟合", "分离度", "边界贴合", "安装匹配", "综合得分"]
-    equal_values = [
-        equal_metrics.weighted_fit_error,
-        equal_metrics.e_sep,
-        equal_metrics.gradient_capture_score,
-        equal_metrics.heater_mismatch,
-        equal_metrics.composite_score,
-    ]
-    aligned_values = [
-        aligned_metrics.weighted_fit_error,
-        aligned_metrics.e_sep,
-        aligned_metrics.gradient_capture_score,
-        aligned_metrics.heater_mismatch,
-        aligned_metrics.composite_score,
-    ]
+    labels, equal_values, aligned_values, _, _ = _normalized_metric_pairs(equal_metrics, aligned_metrics)
     x = np.arange(len(labels))
     width = 0.35
 
@@ -378,6 +433,8 @@ def build_metrics_bar_matplotlib(equal_metrics: MethodMetrics, aligned_metrics: 
     axis.bar(x + width / 2, aligned_values, width=width, color="#dc2626", label="模块对齐分区")
     axis.set_xticks(x)
     axis.set_xticklabels(labels, rotation=10)
+    axis.set_ylim(0.0, 1.05)
+    axis.set_ylabel("归一化对比得分")
     axis.legend(frameon=False, loc="upper right")
     axis.set_title("关键指标对比", loc="left", fontsize=12, fontweight="bold")
     fig.subplots_adjust(left=0.08, right=0.985, top=0.92, bottom=0.18)
