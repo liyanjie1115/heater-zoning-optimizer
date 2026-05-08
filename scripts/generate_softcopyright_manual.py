@@ -34,13 +34,22 @@ from src.heater_zoning.visualization import (
 DOC_ROOT = PROJECT_ROOT / "docs" / "softcopyright_manual"
 ASSET_DIR = DOC_ROOT / "assets"
 OUTPUT_DIR = DOC_ROOT / "generated"
-DOCX_PATH = DOC_ROOT / "Heater_Zoning_Optimizer_V1.0_软件使用说明书.docx"
-PDF_PATH = DOC_ROOT / "Heater_Zoning_Optimizer_V1.0_软件使用说明书.pdf"
+DOCX_PATH = DOC_ROOT / "Heater_Zoning_Optimizer_V1.0_Software_User_Manual.docx"
+PDF_PATH = DOC_ROOT / "Heater_Zoning_Optimizer_V1.0_Software_User_Manual.pdf"
 
 
 def ensure_dirs():
     ASSET_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    for legacy_name in (
+        "Heater_Zoning_Optimizer_V1.0_软件使用说明书.docx",
+        "Heater_Zoning_Optimizer_V1.0_软件使用说明书.pdf",
+        "Heater_Zoning_Optimizer_V1.0_.docx",
+        "Heater_Zoning_Optimizer_V1.0_.pdf",
+    ):
+        legacy_path = DOC_ROOT / legacy_name
+        if legacy_path.exists():
+            legacy_path.unlink()
 
 
 def save_figure(fig, path: Path, dpi: int = 160):

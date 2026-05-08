@@ -4,9 +4,9 @@
 
 ## 目录说明
 
-- `Heater_Zoning_Optimizer_V1.0_软件使用说明书.docx`
+- `Heater_Zoning_Optimizer_V1.0_Software_User_Manual.docx`
   - 正式版 Word 说明书
-- `Heater_Zoning_Optimizer_V1.0_软件使用说明书.pdf`
+- `Heater_Zoning_Optimizer_V1.0_Software_User_Manual.pdf`
   - 由 Word 文档导出的 PDF 版本
 - `assets/`
   - 文档中引用的界面截图、图表、功能模块图、流程图
