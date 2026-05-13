@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .branding import APP_DESCRIPTION_ZH, APP_NAME_EN, APP_NAME_ZH
 from .config import AnalysisConfig
 from .exporters import export_summary_pdf
 from .reporting import (
@@ -258,7 +259,7 @@ class TableView(QTableWidget):
 class DesktopApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Heater Zoning Optimizer")
+        self.setWindowTitle(APP_NAME_EN)
         self.resize(1760, 1020)
         self.setMinimumSize(1520, 900)
 
@@ -331,11 +332,11 @@ class DesktopApp(QMainWindow):
         layout.setContentsMargins(20, 20, 36, 20)
         layout.setSpacing(14)
 
-        brand = QLabel("Heater Zoning Optimizer")
+        brand = QLabel(APP_NAME_EN)
         brand.setStyleSheet("color: #64748b; font-size: 12px;")
-        title = QLabel("加热分区分析台")
+        title = QLabel(APP_NAME_ZH)
         title.setStyleSheet("font-size: 28px; font-weight: 700;")
-        subtitle = QLabel("桌面端与 Web 端保持同一套推荐结论、关键差异、工程明细和导出结果。")
+        subtitle = QLabel(APP_DESCRIPTION_ZH)
         subtitle.setWordWrap(True)
         subtitle.setStyleSheet("color: #475569;")
 

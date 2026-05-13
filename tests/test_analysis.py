@@ -40,8 +40,23 @@ class AnalysisSmokeTest(unittest.TestCase):
             workbook = load_workbook(output_path)
             self.assertEqual(
                 workbook.sheetnames,
-                ["原始数据", "等距分区结果", "模块对齐分区结果", "等距分区三点", "模块对齐三点", "评价指标", "方案差异摘要"],
+                [
+                    "原始数据",
+                    "等距分区结果",
+                    "模块对齐分区结果",
+                    "等距分区三点",
+                    "模块对齐三点",
+                    "评价指标",
+                    "方案差异摘要",
+                    "论文变量映射_分区",
+                    "Fig3_温度边界数据",
+                    "Fig3_模块排布数据",
+                    "Table4_分区策略对比",
+                    "分区明细_论文命名",
+                ],
             )
+            self.assertIn("T_tar(s)", [cell.value for cell in workbook["论文变量映射_分区"]["A"]])
+            self.assertIn("E_part", [cell.value for cell in workbook["Table4_分区策略对比"][1]])
 
     def test_cli_generates_report(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -77,6 +92,28 @@ class AnalysisSmokeTest(unittest.TestCase):
             ["指标", "指标方向", "等距分区", "模块对齐分区", "绝对差值(模块对齐-等距)", "相对变化", "更优方案"],
         )
         self.assertIn("综合得分", differences["指标"].tolist())
+
+    def test_partition_paper_frames_exist(self):
+        artifacts = run_analysis_pipeline(config=AnalysisConfig(), source="sample")
+        frames = artifacts.frames
+        self.assertEqual(
+            list(frames.table4_partition_comparison.columns),
+            [
+                "Method",
+                "方法",
+                "K",
+                "E_part",
+                "reduction_%",
+                "compliance_%",
+                "total_modules",
+                "total_install_length_mm",
+                "heater_mismatch_mm",
+            ],
+        )
+        self.assertIn("T_tar(s)", frames.partition_variable_mapping["paper_symbol"].tolist())
+        self.assertIn("zone_interval", frames.fig3_temperature_boundaries["row_type"].tolist())
+        self.assertIn("module_start_mm", frames.fig3_module_layout.columns)
+        self.assertIn("Omega_k", frames.paper_partition_details.columns)
 
     def test_recommendation_helpers_return_content(self):
         result = analyze_profile(sample_profile_dataframe(), AnalysisConfig())

@@ -2,9 +2,15 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from .analysis import metrics_dataframe, representative_points_dataframe, zones_dataframe
+from .analysis import (
+    compute_gradient_profile,
+    compute_weights,
+    metrics_dataframe,
+    representative_points_dataframe,
+    zones_dataframe,
+)
 from .config import AnalysisConfig
-from .models import AnalysisResult, MethodMetrics
+from .models import AnalysisResult, MethodMetrics, ZoneResult
 
 
 @dataclass
@@ -16,6 +22,11 @@ class ReportFrames:
     aligned_points: pd.DataFrame
     metrics: pd.DataFrame
     differences: pd.DataFrame
+    partition_variable_mapping: pd.DataFrame
+    fig3_temperature_boundaries: pd.DataFrame
+    fig3_module_layout: pd.DataFrame
+    table4_partition_comparison: pd.DataFrame
+    paper_partition_details: pd.DataFrame
 
 
 def build_report_frames(result: AnalysisResult) -> ReportFrames:
@@ -30,7 +41,230 @@ def build_report_frames(result: AnalysisResult) -> ReportFrames:
         aligned_points=representative_points_dataframe(result.aligned_zones, distance, temperature, "模块对齐分区", config),
         metrics=metrics_dataframe(result.equal_metrics, result.aligned_metrics),
         differences=build_difference_table(result),
+        partition_variable_mapping=build_partition_variable_mapping_table(result),
+        fig3_temperature_boundaries=build_fig3_temperature_boundary_data(result),
+        fig3_module_layout=build_fig3_module_layout_data(result),
+        table4_partition_comparison=build_table4_partition_comparison(result),
+        paper_partition_details=build_paper_partition_detail_table(result),
     )
+
+
+def _paper_methods(result: AnalysisResult):
+    return (
+        ("Equal-length partitioning", "等距分区", result.equal_zones, result.equal_metrics),
+        ("Engineering-constrained partitioning", "模块对齐分区", result.aligned_zones, result.aligned_metrics),
+    )
+
+
+def _zone_label(zone: ZoneResult) -> str:
+    return f"Omega_{zone.zone_id}"
+
+
+def build_partition_variable_mapping_table(result: AnalysisResult) -> pd.DataFrame:
+    config = AnalysisConfig(**result.config)
+    aligned_zone_count = len(result.aligned_zones)
+    return pd.DataFrame(
+        [
+            {
+                "paper_symbol": "s",
+                "paper_name": "Coordinate along target heating path",
+                "software_field": "distance_mm",
+                "software_value": "",
+                "unit": "mm",
+                "description": "目标温度路径坐标。",
+            },
+            {
+                "paper_symbol": "T_tar(s)",
+                "paper_name": "Target temperature distribution",
+                "software_field": "temperature_c",
+                "software_value": "",
+                "unit": "degC",
+                "description": "目标温度剖面。",
+            },
+            {
+                "paper_symbol": "L",
+                "paper_name": "Length of target heating path",
+                "software_field": "total_length",
+                "software_value": config.total_length,
+                "unit": "mm",
+                "description": "目标路径总长度。",
+            },
+            {
+                "paper_symbol": "K",
+                "paper_name": "Number of heating zones",
+                "software_field": "len(aligned_zones)",
+                "software_value": aligned_zone_count,
+                "unit": "-",
+                "description": "工程约束分区方案的分区数。",
+            },
+            {
+                "paper_symbol": "Omega_k",
+                "paper_name": "The k-th heating zone",
+                "software_field": "zone_id / start_mm / end_mm",
+                "software_value": "",
+                "unit": "-",
+                "description": "第 k 个加热分区及其左右边界。",
+            },
+            {
+                "paper_symbol": "b_k",
+                "paper_name": "Boundary position of the k-th partition",
+                "software_field": "start_mm / end_mm",
+                "software_value": "",
+                "unit": "mm",
+                "description": "分区边界坐标。",
+            },
+            {
+                "paper_symbol": "l_m",
+                "paper_name": "Length of a heating module",
+                "software_field": "module_length",
+                "software_value": config.module_length,
+                "unit": "mm",
+                "description": "单个加热模块长度。",
+            },
+            {
+                "paper_symbol": "d_m",
+                "paper_name": "Gap between adjacent modules",
+                "software_field": "module_gap",
+                "software_value": config.module_gap,
+                "unit": "mm",
+                "description": "相邻模块间距。",
+            },
+            {
+                "paper_symbol": "s_m",
+                "paper_name": "Module pitch",
+                "software_field": "module_pitch",
+                "software_value": config.module_pitch,
+                "unit": "mm",
+                "description": "模块节距，s_m = l_m + d_m。",
+            },
+        ]
+    )
+
+
+def build_fig3_temperature_boundary_data(result: AnalysisResult) -> pd.DataFrame:
+    profile = result.profile_df.copy().sort_values("distance_mm").reset_index(drop=True)
+    config = AnalysisConfig(**result.config)
+    distance = profile["distance_mm"].to_numpy(dtype=float)
+    temperature = profile["temperature_c"].to_numpy(dtype=float)
+    gradient = compute_gradient_profile(distance, temperature)
+    gradient_max = max(float(gradient.max()), 1.0)
+    weights = compute_weights(distance, temperature, config.alpha)
+
+    rows = []
+    for s_mm, t_tar, grad, weight in zip(distance, temperature, gradient, weights):
+        rows.append(
+            {
+                "row_type": "target_profile",
+                "method": "",
+                "k": "",
+                "Omega_k": "",
+                "s_mm": float(s_mm),
+                "T_tar_C": float(t_tar),
+                "gradient_abs_C_per_mm": float(grad),
+                "gradient_norm": float(grad / gradient_max),
+                "partition_weight": float(weight),
+                "b_left_mm": "",
+                "b_right_mm": "",
+                "Tbar_k_C": "",
+            }
+        )
+
+    for paper_method, _, zones, _ in _paper_methods(result):
+        for zone in zones:
+            rows.append(
+                {
+                    "row_type": "zone_interval",
+                    "method": paper_method,
+                    "k": zone.zone_id,
+                    "Omega_k": _zone_label(zone),
+                    "s_mm": "",
+                    "T_tar_C": "",
+                    "gradient_abs_C_per_mm": "",
+                    "gradient_norm": "",
+                    "partition_weight": "",
+                    "b_left_mm": zone.start_mm,
+                    "b_right_mm": zone.end_mm,
+                    "Tbar_k_C": zone.avg_temp_c,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def build_fig3_module_layout_data(result: AnalysisResult) -> pd.DataFrame:
+    config = AnalysisConfig(**result.config)
+    rows = []
+    for paper_method, _, zones, _ in _paper_methods(result):
+        for zone in zones:
+            for module_index, (start_mm, end_mm) in enumerate(zone.module_positions, start=1):
+                rows.append(
+                    {
+                        "method": paper_method,
+                        "k": zone.zone_id,
+                        "Omega_k": _zone_label(zone),
+                        "module_index": module_index,
+                        "module_start_mm": float(start_mm),
+                        "module_end_mm": float(end_mm),
+                        "module_center_mm": float(0.5 * (start_mm + end_mm)),
+                        "module_length_mm": config.module_length,
+                        "module_gap_mm": config.module_gap,
+                        "zone_start_mm": zone.start_mm,
+                        "zone_end_mm": zone.end_mm,
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def build_table4_partition_comparison(result: AnalysisResult) -> pd.DataFrame:
+    equal_error = float(result.equal_metrics.e_fit)
+    rows = []
+    for paper_method, method_zh, zones, metrics in _paper_methods(result):
+        e_part = float(metrics.e_fit)
+        reduction = "" if paper_method == "Equal-length partitioning" else (equal_error - e_part) / max(equal_error, 1e-9) * 100
+        zone_count = len(zones)
+        compliance = (
+            (zone_count - int(metrics.internal_violations)) / zone_count * 100 if zone_count else 0.0
+        )
+        rows.append(
+            {
+                "Method": paper_method,
+                "方法": method_zh,
+                "K": zone_count,
+                "E_part": e_part,
+                "reduction_%": reduction,
+                "compliance_%": compliance,
+                "total_modules": metrics.total_modules,
+                "total_install_length_mm": metrics.total_install_length_mm,
+                "heater_mismatch_mm": metrics.heater_mismatch,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_paper_partition_detail_table(result: AnalysisResult) -> pd.DataFrame:
+    config = AnalysisConfig(**result.config)
+    rows = []
+    for paper_method, method_zh, zones, _ in _paper_methods(result):
+        for zone in zones:
+            rows.append(
+                {
+                    "method": paper_method,
+                    "方法": method_zh,
+                    "k": zone.zone_id,
+                    "Omega_k": _zone_label(zone),
+                    "b_{k-1}_mm": zone.start_mm,
+                    "b_k_mm": zone.end_mm,
+                    "Delta_s_k_mm": zone.size_mm,
+                    "Tbar_k_C": zone.avg_temp_c,
+                    "n_k": zone.modules,
+                    "l_m_mm": config.module_length,
+                    "d_m_mm": config.module_gap,
+                    "s_m_mm": config.module_pitch,
+                    "L_install_k_mm": zone.install_length_mm,
+                    "left_overhang_mm": zone.left_overhang_mm,
+                    "right_overhang_mm": zone.right_overhang_mm,
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 def _winner_name(result: AnalysisResult) -> str:

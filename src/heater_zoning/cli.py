@@ -1,6 +1,7 @@
 import argparse
 import json
 
+from .branding import APP_NAME_EN
 from .config import AnalysisConfig
 from .runflow import run_analysis_pipeline
 
@@ -23,7 +24,7 @@ PRESET_CONFIGS = {
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Heater zoning optimizer CLI")
+    parser = argparse.ArgumentParser(description=f"{APP_NAME_EN} CLI")
     parser.add_argument("--input", help="Input CSV/XLSX profile path. Omit to use sample data.")
     parser.add_argument("--output-dir", default="outputs", help="Directory for Excel exports.")
     parser.add_argument("--output-name", help="Optional Excel filename.")

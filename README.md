@@ -1,4 +1,4 @@
-# Heater Zoning Optimizer
+# Thermal Zoning Workbench
 
 用于分析加热区沿长度方向的温度剖面，并在模块长度、模块间距、边缘外伸余量等安装约束下，对比两类分区方案：
 

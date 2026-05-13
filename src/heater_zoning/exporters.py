@@ -8,6 +8,7 @@ from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from .branding import APP_NAME_EN
 from .fonts import configure_matplotlib_fonts
 from .models import AnalysisResult
 from .reporting import build_report_frames, build_summary_cards, build_zone_summary_table
@@ -93,6 +94,7 @@ def beautify_excel(workbook_path: Path):
     metric_fill = PatternFill("solid", fgColor="FFF2CC")
     point_fill = PatternFill("solid", fgColor="E2F0D9")
     summary_fill = PatternFill("solid", fgColor="EEF6FF")
+    paper_fill = PatternFill("solid", fgColor="F4E8FF")
     header_font = Font(bold=True, color="000000")
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
     border = Border(
@@ -136,6 +138,11 @@ def beautify_excel(workbook_path: Path):
                 for cell in row:
                     cell.fill = point_fill
 
+        if sheet.title.startswith("Fig3") or sheet.title.startswith("Table4") or sheet.title.startswith("论文") or sheet.title.startswith("分区明细"):
+            for row in sheet.iter_rows(min_row=2, max_col=min(sheet.max_column, 4)):
+                for cell in row:
+                    cell.fill = paper_fill
+
         for col_idx, column_cells in enumerate(sheet.columns, start=1):
             max_length = 0
             col_letter = get_column_letter(col_idx)
@@ -159,6 +166,11 @@ def export_analysis_excel(result: AnalysisResult, output_path: Path) -> Path:
         frames.aligned_points.to_excel(writer, sheet_name="模块对齐三点", index=False)
         frames.metrics.to_excel(writer, sheet_name="评价指标", index=False)
         frames.differences.to_excel(writer, sheet_name="方案差异摘要", index=False)
+        frames.partition_variable_mapping.to_excel(writer, sheet_name="论文变量映射_分区", index=False)
+        frames.fig3_temperature_boundaries.to_excel(writer, sheet_name="Fig3_温度边界数据", index=False)
+        frames.fig3_module_layout.to_excel(writer, sheet_name="Fig3_模块排布数据", index=False)
+        frames.table4_partition_comparison.to_excel(writer, sheet_name="Table4_分区策略对比", index=False)
+        frames.paper_partition_details.to_excel(writer, sheet_name="分区明细_论文命名", index=False)
 
     beautify_excel(output_path)
     return output_path
@@ -196,7 +208,7 @@ def _summary_figure(result: AnalysisResult):
     fig.patch.set_facecolor("white")
 
     axes[0].axis("off")
-    axes[0].text(0.0, 1.0, "Heater Zoning Optimizer 摘要", fontsize=18, fontweight="bold", va="top")
+    axes[0].text(0.0, 1.0, f"{APP_NAME_EN} 摘要", fontsize=18, fontweight="bold", va="top")
     y = 0.72
     for card in cards:
         axes[0].text(0.0, y, f"{card['label']}: {card['value']}", fontsize=12, va="top")

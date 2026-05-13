@@ -52,7 +52,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name="heater-zoning-optimizer",
+    name="thermal-zoning-workbench",
     icon=str(icon_path),
     version=str(version_path),
     debug=False,

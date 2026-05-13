@@ -1,4 +1,4 @@
-"""Heater zoning optimizer package."""
+"""Thermal Zoning Workbench package."""
 
 from .analysis import analyze_profile
 from .config import AnalysisConfig
